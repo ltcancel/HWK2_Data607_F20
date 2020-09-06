@@ -2,40 +2,52 @@
 title: "HWK2_Data607_F20"
 author: "LeTicia Cancel"
 date: "9/5/2020"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+    theme: united
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Introduction
+
+This is an analysis of movie reviews taken from five imaginary individuals. Each “reviewer” was asked to share their opinion of up to six films on a scale of 1 – 5 with 1 being “Below Average” and 5 being “Excellent”. There is also a response of N/A – Did not watch film which is meant to catch any reviewers who left the question blank. 
+
 Packages needed
 ```{r warning=FALSE, message=FALSE}
 #install.packages("RPostgres")
 library(DBI)
 library(RCurl)
+library(ggplot2)
 ```
 
+## Connect to Database
 
-Connect to PostgreSQL DB
+I created a database using PostgreSQL with 3 tables. One to hold all responses, one with reviewer information, and the third with just the movie names. 
+
+Connect to PostgreSQL DB by replacing all variables with your own credientials.
 ```{r}
 dbName <- 'data607'
 host <- 'localhost'
 port <- 5432
 user <- 'postgres'
-password <- '10Pancakes'
+password <- 'xxx'
 
+# Create connection and save it to con
 con <- dbConnect(RPostgres::Postgres(), dbname = dbName,
                  host = host,
                  port = port, 
                  user = user, 
                  password = password)
-
-dbListTables(con)
-?dbWriteTable
 ```
 
-Get data to be loaded in db
+## Database Setup
+
+You will need to create 3 tables using csv data saved in GitHub.
 ```{r}
 #Movies data
 x1 <- getURL("https://raw.githubusercontent.com/ltcancel/HWK2_Data607_F20/master/movies.csv")
@@ -55,20 +67,27 @@ df3 <- read.csv(text = x3)
 
 ```
 
-Create tables using csv files from Github. Query movie results from tables
+
+Create the tables and load the information at the same time using dbWriteTable(). Then use dbListTables(con) to verify that the tables were created. You should have a table called movies, reviewers, and results. 
 ```{r}
 
 dbWriteTable(con, "movies", df1, row.names = FALSE)
-dbReadTable(con, "movies")
+#dbReadTable(con, "movies")
 
 #rename weird column name
 
 
 dbWriteTable(con, "reviewers", df2, row.names = FALSE)
-dbReadTable(con, "reviewers")
+#dbReadTable(con, "reviewers")
 
 dbWriteTable(con, "results", df3, row.names = FALSE)
-dbReadTable(con, "results")
+#dbReadTable(con, "results")
+
+dbListTables(con)
+```
+
+Query the data needed for your analysis. Since the main results table only has the reviewer’s ID we will join with the reviewers table to get the reviewer’s name. 
+```{r}
 
 res <- dbGetQuery(con, 'SELECT b."last_name", b."first_name",
            a."Movie_Desc", a."Opinion_Desc" 
@@ -77,12 +96,44 @@ res <- dbGetQuery(con, 'SELECT b."last_name", b."first_name",
 
 #preview results of query
 head(res)
-#disconnect from database when ready
-dbDisconnect(con)
 ```
 
-Analyze data
-```{r}
 
+## Analysis
+
+I used ggplot to create a barplot showing the ratings for each movie. I flipped the table, so the x-axis is on the left because some of the ratings name are long and get bunched up making it difficult to read. I kept the N/A data for this table because I thought it was important to know which movie had the least number of views out of all the reviewers. Parasite had the most N/A responses and Frozen II is not part of this bar at all, so I know that each reviewer has seen this film. 
+```{r}
+ggplot(data = res) +
+  geom_bar(
+    mapping = aes(x = Opinion_Desc, fill = Movie_Desc), position = "fill"
+  ) +
+  coord_flip() +
+  labs(x = "Rating", title = "Movie Ratings", fill = "Movie Titles")
+```
+
+Analyze data without the N/A responses
+```{r}
+res2 <- dbGetQuery(con, 'SELECT b."last_name", b."first_name",
+           a."Movie_Desc", a."Opinion_Desc" 
+           FROM results a
+           INNER JOIN reviewers b ON a."Respondent" = b."X.U.FEFF.reviewer_id"
+           WHERE a."Opinion_Cd" != 5')
+
+head(res2)
+
+ggplot(data = res2) +
+  geom_bar(
+    mapping = aes(x = Opinion_Desc, fill = Movie_Desc), position = "fill"
+  ) +
+  coord_polar() +
+    labs(x = "Rating", title = "Movie Ratings", fill = "Movie Titles")
+```
+
+Conclusion 
+
+
+Disconnect from db
+```{r}
+dbDisconnect(con)
 ```
 
