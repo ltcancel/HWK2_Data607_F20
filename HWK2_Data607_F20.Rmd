@@ -5,8 +5,8 @@ date: "9/5/2020"
 output: 
   html_document:
     toc: true
+    toc_float: true
     toc_depth: 2
-    theme: united
 ---
 
 ```{r setup, include=FALSE}
@@ -29,13 +29,13 @@ library(ggplot2)
 
 I created a database using PostgreSQL with 3 tables. One to hold all responses, one with reviewer information, and the third with just the movie names. 
 
-Connect to PostgreSQL DB by replacing all variables with your own credientials.
-```{r}
+Connect to PostgreSQL DB by replacing all variables with your own credentials.
+```{r warning=FALSE}
 dbName <- 'data607'
 host <- 'localhost'
 port <- 5432
 user <- 'postgres'
-password <- 'xxx'
+password <- '10Pancakes'
 
 # Create connection and save it to con
 con <- dbConnect(RPostgres::Postgres(), dbname = dbName,
@@ -51,38 +51,32 @@ You will need to create 3 tables using csv data saved in GitHub.
 ```{r}
 #Movies data
 x1 <- getURL("https://raw.githubusercontent.com/ltcancel/HWK2_Data607_F20/master/movies.csv")
-
 df1 <- read.csv(text = x1)
 
 #Reviewers
 x2 <- getURL("https://raw.githubusercontent.com/ltcancel/HWK2_Data607_F20/master/reviewers.csv")
-
 df2 <- read.csv(text = x2)
 
 #Review results
 x3 <- getURL("https://raw.githubusercontent.com/ltcancel/HWK2_Data607_F20/master/Movie%20Review%20Results.csv")
-
 df3 <- read.csv(text = x3)
 
 
 ```
 
 
-Create the tables and load the information at the same time using dbWriteTable(). Then use dbListTables(con) to verify that the tables were created. You should have a table called movies, reviewers, and results. 
+Create the tables and load the information at the same time using dbWriteTable(). Then use dbListTables(con) to verify that the tables were created. You should have the tables movies, reviewers, and results. 
 ```{r}
-
+#Movies table
 dbWriteTable(con, "movies", df1, row.names = FALSE)
-#dbReadTable(con, "movies")
 
-#rename weird column name
-
-
+#Reviewers table
 dbWriteTable(con, "reviewers", df2, row.names = FALSE)
-#dbReadTable(con, "reviewers")
 
+#Results table
 dbWriteTable(con, "results", df3, row.names = FALSE)
-#dbReadTable(con, "results")
 
+#Confirm table creation
 dbListTables(con)
 ```
 
@@ -101,7 +95,7 @@ head(res)
 
 ## Analysis
 
-I used ggplot to create a barplot showing the ratings for each movie. I flipped the table, so the x-axis is on the left because some of the ratings name are long and get bunched up making it difficult to read. I kept the N/A data for this table because I thought it was important to know which movie had the least number of views out of all the reviewers. Parasite had the most N/A responses and Frozen II is not part of this bar at all, so I know that each reviewer has seen this film. 
+I used ggplot to create a barplot showing the ratings for each movie. I flipped the table, so the x-axis is on the left because some of the ratings name are long and get bunched up making it difficult to read. I kept the N/A data for this table because I thought it was important to know which movie had the least number of views out of all the reviewers. Parasite had the most N/A responses and Frozen II is not part of this bar at all, so I know that each reviewer has seen this film. Five out of the six films have an Average rating with 1917 having the greatest number of Average ratings.  
 ```{r}
 ggplot(data = res) +
   geom_bar(
@@ -111,15 +105,13 @@ ggplot(data = res) +
   labs(x = "Rating", title = "Movie Ratings", fill = "Movie Titles")
 ```
 
-Analyze data without the N/A responses
+I queried the same data again but this time without the N/A responses. The coord_polar setting was the best for these results. This confirms findings from the first table where most of the films have an Average rating. Although the Excellent and Below Average rating had the least number of movies, I am able see which films had the most responses for these ratings. Frozen II is rated the worse out of all films because it has the greatest number of Below Average ratings. 
 ```{r}
 res2 <- dbGetQuery(con, 'SELECT b."last_name", b."first_name",
            a."Movie_Desc", a."Opinion_Desc" 
            FROM results a
            INNER JOIN reviewers b ON a."Respondent" = b."X.U.FEFF.reviewer_id"
            WHERE a."Opinion_Cd" != 5')
-
-head(res2)
 
 ggplot(data = res2) +
   geom_bar(
@@ -129,10 +121,13 @@ ggplot(data = res2) +
     labs(x = "Rating", title = "Movie Ratings", fill = "Movie Titles")
 ```
 
-Conclusion 
+## Conclusion/Lessons Learned
+
+There were some challenges with setting up the database. I was going to originally use MySQL but had issues with the password and was not able to connect. PostgrSQL was the backup option and it was not difficult to setup. Creating tables and importing values at the same time was very easy and convenient however, the column names were created with quotes even though the original data does not have quotes. I would try to find a way to create the table without quotes around the column names or alter the column names to remove the quotes. I would also gather more reviews and more information about my reviewers so I can create a more interesting analysis. 
 
 
-Disconnect from db
+
+Disconnect from db when you are done. 
 ```{r}
 dbDisconnect(con)
 ```
