@@ -9,22 +9,80 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+Packages needed
+```{r warning=FALSE, message=FALSE}
+#install.packages("RPostgres")
+library(DBI)
+library(RCurl)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+Connect to PostgreSQL DB
+```{r}
+dbName <- 'data607'
+host <- 'localhost'
+port <- 5432
+user <- 'postgres'
+password <- '10Pancakes'
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+con <- dbConnect(RPostgres::Postgres(), dbname = dbName,
+                 host = host,
+                 port = port, 
+                 user = user, 
+                 password = password)
+
+dbListTables(con)
+?dbWriteTable
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Get data to be loaded in db
+```{r}
+#Movies data
+x1 <- getURL("https://raw.githubusercontent.com/ltcancel/HWK2_Data607_F20/master/movies.csv")
+
+df1 <- read.csv(text = x1)
+
+#Reviewers
+x2 <- getURL("https://raw.githubusercontent.com/ltcancel/HWK2_Data607_F20/master/reviewers.csv")
+
+df2 <- read.csv(text = x2)
+
+#Review results
+x3 <- getURL("https://raw.githubusercontent.com/ltcancel/HWK2_Data607_F20/master/Movie%20Review%20Results.csv")
+
+df3 <- read.csv(text = x3)
+
+
+```
+
+Create tables using csv files from Github. Query movie results from tables
+```{r}
+
+dbWriteTable(con, "movies", df1, row.names = FALSE)
+dbReadTable(con, "movies")
+
+#rename weird column name
+
+
+dbWriteTable(con, "reviewers", df2, row.names = FALSE)
+dbReadTable(con, "reviewers")
+
+dbWriteTable(con, "results", df3, row.names = FALSE)
+dbReadTable(con, "results")
+
+res <- dbGetQuery(con, 'SELECT b."last_name", b."first_name",
+           a."Movie_Desc", a."Opinion_Desc" 
+           FROM results a
+           INNER JOIN reviewers b ON a."Respondent" = b."X.U.FEFF.reviewer_id"')
+
+#preview results of query
+head(res)
+#disconnect from database when ready
+dbDisconnect(con)
+```
+
+Analyze data
+```{r}
+
+```
+
